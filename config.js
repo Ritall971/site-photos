@@ -85,5 +85,5 @@ const CONFIG = {
   dureesSeances: { Portrait: 2, Mariage: "journee", "Événement": 4, "Véhicules": 2, Professionnel: 2, Autre: 2 },
 
   // Texte affiché sous le calendrier
-  noteDispo: "Séances possibles du mardi au dimanche. Réservez de préférence 2 semaines à l'avance.",
+  noteDispo: "Séances possibles du mercredi au dimanche. Réservez de préférence 2 semaines à l'avance.",
 };
