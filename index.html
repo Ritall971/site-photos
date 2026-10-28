@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photographe — Portfolio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230b0b0c'/><circle cx='16' cy='16' r='8' fill='none' stroke='%23d6c3a1' stroke-width='2'/><circle cx='16' cy='16' r='3' fill='%23d6c3a1'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <a href="#accueil" class="logo" id="logo"></a>
+    <nav>
+      <a href="#galerie">Galerie</a>
+      <a href="#disponibilites">Disponibilités</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <section id="accueil" class="hero">
+    <div class="hero-bg" id="hero-bg"></div>
+    <div class="hero-content">
+      <p class="eyebrow" id="metier"></p>
+      <h1 id="nom"></h1>
+      <p class="accroche" id="accroche"></p>
+      <a href="#contact" class="btn">Réserver une séance</a>
+    </div>
+  </section>
+
+  <section class="apropos">
+    <p id="apropos"></p>
+  </section>
+
+  <section id="galerie" class="section">
+    <h2>Galerie</h2>
+    <div class="filtres" id="filtres"></div>
+    <div class="grille" id="grille"></div>
+  </section>
+
+  <section id="disponibilites" class="section alt">
+    <h2>Disponibilités</h2>
+    <div class="calendrier">
+      <div class="cal-head">
+        <button id="prev" aria-label="Mois précédent">‹</button>
+        <h3 id="mois"></h3>
+        <button id="next" aria-label="Mois suivant">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="legende">
+        <span><i class="dot dispo"></i>Disponible</span>
+        <span><i class="dot partiel"></i>Quelques créneaux</span>
+        <span><i class="dot reserve"></i>Réservé</span>
+      </div>
+      <p class="note" id="note-dispo"></p>
+    </div>
+  </section>
+
+  <section id="contact" class="section">
+    <h2>Contact</h2>
+    <div class="contact-wrap">
+      <ul class="coord" id="coord"></ul>
+      <form id="form">
+        <fieldset class="choix full">
+          <legend>Votre demande</legend>
+          <label><input type="radio" name="demande" value="rdv" checked><span>Prendre rendez-vous</span></label>
+          <label><input type="radio" name="demande" value="info"><span>Demande d'information</span></label>
+        </fieldset>
+        <label>Nom<input name="nom" required></label>
+        <label>Email<input name="email" type="email" required></label>
+        <label>Téléphone (facultatif)<input name="telephone" type="tel"></label>
+        <label class="rdv">Type de séance
+          <select name="type">
+            <option>Portrait</option><option>Mariage</option><option>Événement</option>
+            <option>Véhicules</option><option>Professionnel</option><option>Autre</option>
+          </select>
+        </label>
+        <label class="rdv">Date souhaitée<input name="date" type="date" required></label>
+        <label class="rdv">Heure souhaitée<input name="heure" type="time" step="1800" required></label>
+        <p class="rdv full dispo-date" id="dispo-date"></p>
+        <label class="full">Message<textarea name="message" rows="5" required></textarea></label>
+        <input type="checkbox" name="botcheck" class="piege" tabindex="-1" autocomplete="off">
+        <button class="btn full" type="submit" id="bouton-envoi">Envoyer la demande de rendez-vous</button>
+        <p class="form-statut full" id="form-statut" role="status"></p>
+      </form>
+    </div>
+  </section>
+
+  <footer id="footer"></footer>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lb-close" aria-label="Fermer">×</button>
+    <button class="lb-prev" aria-label="Précédente">‹</button>
+    <figure><img id="lb-img" alt=""><figcaption id="lb-cap"></figcaption></figure>
+    <button class="lb-next" aria-label="Suivante">›</button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
