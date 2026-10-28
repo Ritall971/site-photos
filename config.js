@@ -63,18 +63,18 @@ const CONFIG = {
   // Plusieurs plages possibles (ex. pause déjeuner). [] = jour de repos.
   horaires: {
     lundi: [],
-    mardi: ["09:00-12:00", "14:00-19:00"],
+    mardi: [],
     mercredi: ["09:00-12:00", "14:00-19:00"],
     jeudi: ["09:00-12:00", "14:00-19:00"],
     vendredi: ["09:00-12:00", "14:00-19:00"],
     samedi: ["09:00-19:00"],
-    dimanche: ["10:00-17:00"],
+    dimanche: ["10:00-16:00"],
   },
   // Horaires différents pour une date précise : [] = fermé ce jour-là (vacances, jour férié...).
   exceptionsHoraires: {
-    "2026-12-24": ["09:00-13:00"],
-    "2026-12-25": [],
-    "2027-01-01": [],
+    "": [],
+    "": [],
+    "": [],
   },
   // Écart entre deux heures de début proposées, en minutes (15, 30, 60...)
   intervalleCreneaux: 30,
