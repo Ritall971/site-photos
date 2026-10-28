@@ -22,7 +22,7 @@ const CONFIG = {
   // URL du script Google qui reçoit les demandes, se termine par /exec.
   // Voir les étapes d'installation en haut du fichier google-apps-script/Code.gs.
   // Sans URL, le formulaire ouvre simplement la messagerie du client.
-  urlScriptGoogle: "https://script.google.com/home/projects/1JC1CcppNvrhyZWrRJDm631UOyJtQA30CpUxhAjuJxDARWAKcCtvYJHD0/edit",
+  urlScriptGoogle: "https://script.google.com/macros/s/AKfycbxSt61s8TAH66XDwrdygEnaFEqvnmxhTZO_ZWMuFvknLbLvERX-q7rlhAuL7Yo3phHR/exec",
 
   // --- Photos ---
   // Mets tes fichiers dans le dossier "photos/" puis remplace les liens ci-dessous,
