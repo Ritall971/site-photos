@@ -470,6 +470,7 @@ if (!mouvementReduit) {
     let relais = borner((p - 0.92) / 0.08);
     // ... dans ce cas le relais se fait juste avant qu'il n'atteigne les liens
     if (m.liens) relais = Math.max(relais, borner((m.liens.bas + 14 - y) / 14));
+    relais = Math.round(relais * 1000) / 1000; // évite les restes d'arrondi (0.9999999…)
     volant.style.opacity = 1 - relais;
     logo.style.opacity = relais;
     // Le reste du texte d'accueil s'efface pour laisser passer le titre
