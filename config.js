@@ -57,7 +57,32 @@ const CONFIG = {
   // Tous les autres jours (hors jours de repos) s'affichent comme disponibles.
   reserve: ["", "", "", "", "", "", ""],
   partiel: ["", "", "", ""],
-  joursRepos: [1], // 0 = dimanche, 1 = lundi, ... 6 = samedi
+
+  // --- Horaires des séances ---
+  // Plages horaires proposées aux clients pour chaque jour, au format "HH:MM-HH:MM".
+  // Plusieurs plages possibles (ex. pause déjeuner). [] = jour de repos.
+  horaires: {
+    lundi: [],
+    mardi: ["09:00-12:00", "14:00-19:00"],
+    mercredi: ["09:00-12:00", "14:00-19:00"],
+    jeudi: ["09:00-12:00", "14:00-19:00"],
+    vendredi: ["09:00-12:00", "14:00-19:00"],
+    samedi: ["09:00-19:00"],
+    dimanche: ["10:00-17:00"],
+  },
+  // Horaires différents pour une date précise : [] = fermé ce jour-là (vacances, jour férié...).
+  exceptionsHoraires: {
+    "2026-12-24": ["09:00-13:00"],
+    "2026-12-25": [],
+    "2027-01-01": [],
+  },
+  // Écart entre deux heures de début proposées, en minutes (15, 30, 60...)
+  intervalleCreneaux: 30,
+  // Délai minimum entre la demande et le rendez-vous, en heures (0 = aucun)
+  delaiMinimumHeures: 24,
+  // Types de séance proposés et leur durée en heures ("journee" = toute la journée, sans choix d'heure).
+  // Garde les mêmes durées que dans google-apps-script/Code.gs.
+  dureesSeances: { Portrait: 2, Mariage: "journee", "Événement": 4, "Véhicules": 2, Professionnel: 2, Autre: 2 },
 
   // Texte affiché sous le calendrier
   noteDispo: "Séances possibles du mardi au dimanche. Réservez de préférence 2 semaines à l'avance.",

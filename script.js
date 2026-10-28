@@ -68,8 +68,22 @@ auj.setHours(0, 0, 0, 0);
 let vue = new Date(auj.getFullYear(), auj.getMonth(), 1);
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+// --- Horaires des séances ---
+const NOMS_JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const enMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const enHeure = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+// Plages d'ouverture d'un jour, en minutes depuis minuit : [[540, 720], [840, 1140]]
+function plagesDuJour(d) {
+  const plages = CONFIG.exceptionsHoraires?.[iso(d)] ?? CONFIG.horaires?.[NOMS_JOURS[d.getDay()]] ?? [];
+  return plages.map((p) => p.split("-").map(enMinutes));
+}
+const estFerme = (d) => plagesDuJour(d).length === 0;
+
 // Occupation lue dans Google Agenda : { "AAAA-MM-JJ": nombre d'heures, ou Infinity pour une journée entière }
 const occupation = {};
+// Rendez-vous de chaque jour, en minutes depuis minuit : { "AAAA-MM-JJ": [[840, 960], ...] }
+const plagesOccupees = {};
 const chargements = new Map(); // mois -> promesse de chargement, pour ne pas interroger Google deux fois
 const evenementsVus = new Set(); // un événement à cheval sur deux mois revient dans les deux requêtes
 
@@ -78,8 +92,12 @@ function ajouterOccupation(debut, fin, journeeEntiere) {
     const cle = iso(d);
     if (journeeEntiere) { occupation[cle] = Infinity; continue; }
     const finJour = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
-    const heures = (Math.min(fin, finJour) - Math.max(debut, d)) / 3600000;
-    occupation[cle] = (occupation[cle] || 0) + heures;
+    const debutJ = new Date(Math.max(debut, d)), finJ = new Date(Math.min(fin, finJour));
+    occupation[cle] = (occupation[cle] || 0) + (finJ - debutJ) / 3600000;
+    (plagesOccupees[cle] ||= []).push([
+      debutJ.getHours() * 60 + debutJ.getMinutes(),
+      finJ >= finJour ? 24 * 60 : finJ.getHours() * 60 + finJ.getMinutes(),
+    ]);
   }
 }
 
@@ -152,7 +170,7 @@ function afficherCalendrier() {
     let etat = etatDuJour(cle);
     let titre = { dispo: "Disponible", partiel: "Quelques créneaux", reserve: "Réservé" }[etat];
     if (d < auj) { etat = "passe"; titre = ""; }
-    else if (etat === "dispo" && CONFIG.joursRepos.includes(d.getDay())) { etat = "ferme"; titre = "Fermé"; }
+    else if (etat === "dispo" && estFerme(d)) { etat = "ferme"; titre = "Fermé"; }
 
     const cell = document.createElement("div");
     cell.className = `jour ${etat}${d.getTime() === auj.getTime() ? " aujourdhui" : ""}`;
@@ -179,44 +197,98 @@ $("coord").innerHTML = lignes.map(([k, v]) => `<li><span>${k}</span>${v}</li>`).
 const form = $("form");
 const estRdv = () => form.elements.demande.value === "rdv";
 form.elements.date.min = iso(auj);
+const selectHeure = form.elements.heure;
+const champHeure = selectHeure.closest("label");
+const types = Object.keys(CONFIG.dureesSeances || {});
+if (types.length) form.elements.type.innerHTML = types.map((t) => `<option>${t}</option>`).join("");
+const estJournee = () => CONFIG.dureesSeances?.[form.elements.type.value] === "journee";
 
 function basculerDemande() {
   form.querySelectorAll(".rdv").forEach((el) => {
     el.hidden = !estRdv();
     el.querySelectorAll("input, select").forEach((champ) => (champ.disabled = !estRdv()));
   });
+  // Séance sur la journée entière : pas d'heure à choisir
+  champHeure.hidden = !estRdv() || estJournee();
+  selectHeure.disabled = champHeure.hidden;
   $("bouton-envoi").textContent = estRdv() ? "Envoyer la demande de rendez-vous" : "Envoyer ma question";
 }
 form.querySelectorAll("input[name=demande]").forEach((r) => (r.onchange = basculerDemande));
 basculerDemande();
 
-// Disponibilité du jour choisi : null si le jour peut être demandé, sinon la raison du refus
+// Heures de début libres pour une séance de ce type, selon les horaires et l'agenda
+function creneauxDisponibles(d, type) {
+  const dureeMin = (CONFIG.dureesSeances?.[type] ?? 2) * 60;
+  const pas = CONFIG.intervalleCreneaux || 30;
+  const limite = Date.now() + (CONFIG.delaiMinimumHeures ?? 0) * 3600000;
+  const occupes = plagesOccupees[iso(d)] || [];
+  const liste = [];
+  for (const [ouverture, fermeture] of plagesDuJour(d)) {
+    for (let m = ouverture; m + dureeMin <= fermeture; m += pas) {
+      if (new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, m) < limite) continue;
+      if (occupes.some(([a, b]) => m < b && m + dureeMin > a)) continue;
+      liste.push(enHeure(m));
+    }
+  }
+  return liste;
+}
+
+function remplirHeures(liste, texteVide) {
+  const avant = selectHeure.value;
+  selectHeure.innerHTML = liste.length
+    ? `<option value="">Choisir une heure</option>` +
+      liste.map((h) => `<option value="${h}">${h.replace(":", "h")}</option>`).join("")
+    : `<option value="">${texteVide}</option>`;
+  if (liste.includes(avant)) selectHeure.value = avant;
+}
+
+// Disponibilité du jour choisi : remplit la liste des heures et renvoie null
+// si le jour peut être demandé, sinon la raison du refus
 async function verifierDate(valeur) {
+  const type = form.elements.type.value;
   const info = $("dispo-date");
   info.className = "rdv full dispo-date";
   info.textContent = "";
+  remplirHeures([], "Choisissez d'abord une date");
   if (!valeur) return null;
   const [a, m, j] = valeur.split("-").map(Number);
   const d = new Date(a, m - 1, j);
-  let etat, texte;
+  const delai = CONFIG.delaiMinimumHeures ?? 0;
+  let etat, texte, refus = true;
   if (d < auj) { etat = "reserve"; texte = "Cette date est déjà passée."; }
   else {
     await chargerGoogleAgenda(a, m - 1);
+    if (form.elements.date.value !== valeur || form.elements.type.value !== type) return null; // changé entre-temps
     etat = etatDuJour(valeur);
-    if (etat === "dispo" && CONFIG.joursRepos.includes(d.getDay())) etat = "ferme";
-    texte = {
-      dispo: "✓ Ce jour est disponible.",
-      partiel: "Il reste quelques créneaux ce jour-là, je vous confirmerai l'horaire.",
-      reserve: "Ce jour est déjà réservé, merci de choisir une autre date.",
-      ferme: "Je ne travaille pas ce jour-là, merci de choisir une autre date.",
-    }[etat];
+    if (etat === "dispo" && estFerme(d)) etat = "ferme";
+    if (etat === "reserve") texte = "Ce jour est déjà réservé, merci de choisir une autre date.";
+    else if (etat === "ferme") texte = "Je ne travaille pas ce jour-là, merci de choisir une autre date.";
+    else if (estJournee()) {
+      if (occupation[valeur] || etat === "partiel") { etat = "reserve"; texte = "Ce jour n'est plus entièrement libre, merci de choisir une autre date."; }
+      else if (d < Date.now() + delai * 3600000) { etat = "reserve"; texte = `Les réservations se font au moins ${delai} h à l'avance.`; }
+      else { etat = "dispo"; texte = "✓ Ce jour est entièrement libre."; refus = false; }
+    } else {
+      const liste = creneauxDisponibles(d, type);
+      remplirHeures(liste, "Aucun horaire disponible");
+      if (!liste.length) {
+        etat = "reserve";
+        texte = delai && d < Date.now() + (delai + 24) * 3600000
+          ? `Plus aucun horaire disponible ce jour-là (réservation au moins ${delai} h à l'avance).`
+          : "Plus aucun horaire disponible ce jour-là pour cette séance, merci de choisir une autre date.";
+      } else {
+        texte = etat === "partiel"
+          ? `Il reste ${liste.length} horaire${liste.length > 1 ? "s" : ""} disponible${liste.length > 1 ? "s" : ""} ce jour-là.`
+          : "✓ Ce jour est disponible, choisissez une heure.";
+        refus = false;
+      }
+    }
   }
-  if (form.elements.date.value !== valeur) return null; // la date a changé entre-temps
   info.classList.add(etat);
   info.textContent = texte;
-  return etat === "reserve" || etat === "ferme" ? texte : null;
+  return refus ? texte : null;
 }
 form.elements.date.onchange = () => verifierDate(form.elements.date.value);
+form.elements.type.onchange = () => { basculerDemande(); verifierDate(form.elements.date.value); };
 
 form.onsubmit = async (e) => {
   e.preventDefault();
@@ -227,12 +299,16 @@ form.onsubmit = async (e) => {
   statut.textContent = "";
 
   if (estRdv()) {
+    const heureChoisie = f.get("heure");
     const refus = await verifierDate(f.get("date"));
-    if (refus) {
+    if (heureChoisie) selectHeure.value = heureChoisie;
+    if (refus || (!estJournee() && selectHeure.value !== heureChoisie)) {
       statut.classList.add("erreur");
-      statut.textContent = refus;
+      statut.textContent = refus || "Cet horaire n'est plus disponible, merci d'en choisir un autre.";
       return;
     }
+    // Le script Google attend une heure, même pour une séance sur la journée entière
+    if (estJournee()) f.set("heure", "00:00");
   }
 
   if (!CONFIG.urlScriptGoogle) {
@@ -241,7 +317,9 @@ form.onsubmit = async (e) => {
       : `Demande d'information — ${f.get("nom")}`;
     const corps =
       `Nom : ${f.get("nom")}\nEmail : ${f.get("email")}\nTéléphone : ${f.get("telephone") || "—"}\n` +
-      (estRdv() ? `Type : ${f.get("type")}\nDate souhaitée : ${f.get("date")} à ${f.get("heure")}\n` : "") +
+      (estRdv()
+        ? `Type : ${f.get("type")}\nDate souhaitée : ${f.get("date")} ${estJournee() ? "(journée entière)" : "à " + f.get("heure")}\n`
+        : "") +
       `\n${f.get("message")}`;
     window.location.href = `mailto:${c.email}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     return;
@@ -265,7 +343,7 @@ form.onsubmit = async (e) => {
       : "Merci ! Votre message a bien été envoyé, je vous réponds rapidement.";
     form.reset();
     basculerDemande();
-    $("dispo-date").textContent = "";
+    verifierDate("");
   } catch {
     statut.classList.add("erreur");
     statut.innerHTML = `L'envoi a échoué. Écrivez-moi directement à <a href="mailto:${c.email}">${c.email}</a>.`;
