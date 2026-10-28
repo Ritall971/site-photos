@@ -13,8 +13,8 @@ const CONFIG = {
   // --- Coordonnées ---
   contact: {
     email: "rerefava94@gmail.com",
-    telephone: "06 00 00 00 00",
-    ville: "Votre ville, France",
+    telephone: "01 23 45 67 89",
+    ville: "Vitry-sur-Seine",
     instagram: "https://instagram.com/votre_compte", // laisse "" pour masquer
   },
 
@@ -22,7 +22,7 @@ const CONFIG = {
   // URL du script Google qui reçoit les demandes, se termine par /exec.
   // Voir les étapes d'installation en haut du fichier google-apps-script/Code.gs.
   // Sans URL, le formulaire ouvre simplement la messagerie du client.
-  urlScriptGoogle: "",
+  urlScriptGoogle: "https://script.google.com/home/projects/1JC1CcppNvrhyZWrRJDm631UOyJtQA30CpUxhAjuJxDARWAKcCtvYJHD0/edit",
 
   // --- Photos ---
   // Mets tes fichiers dans le dossier "photos/" puis remplace les liens ci-dessous,
