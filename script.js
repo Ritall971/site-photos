@@ -1,5 +1,31 @@
 const $ = (id) => document.getElementById(id);
 
+// --- Animations : apparition des blocs au défilement ---
+const mouvementReduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const racine = document.documentElement;
+const observateur = "IntersectionObserver" in window && !mouvementReduit
+  ? new IntersectionObserver((entrees) => entrees.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add("visible");
+      observateur.unobserve(e.target);
+    }), { rootMargin: "0px 0px -8% 0px", threshold: 0.08 })
+  : null;
+if (observateur) racine.classList.add("anim");
+
+function reveler(el, delai = 0) {
+  el.setAttribute("data-reveal", "");
+  el.style.setProperty("--delai", `${+delai.toFixed(2)}s`);
+  if (observateur) observateur.observe(el);
+  else el.classList.add("visible");
+}
+
+// Relance l'animation CSS d'un élément (texte qui change, image suivante...)
+function rejouer(el, classe = "rejoue") {
+  el.classList.remove(classe);
+  void el.offsetWidth;
+  el.classList.add(classe);
+}
+
 // --- Textes ---
 document.title = `${CONFIG.nom} — ${CONFIG.metier}`;
 $("logo").textContent = CONFIG.nom;
@@ -26,6 +52,7 @@ function afficherGalerie(cat) {
     fig.querySelector("figcaption").textContent = p.titre;
     fig.onclick = () => ouvrir(i);
     $("grille").appendChild(fig);
+    reveler(fig, Math.min(i * 0.07, 0.42));
   });
   document.querySelectorAll(".filtres button").forEach((b) => b.classList.toggle("actif", b.textContent === cat));
 }
@@ -40,23 +67,32 @@ afficherGalerie("Tout");
 
 // --- Lightbox ---
 let courant = 0;
+let minuterieFermeture;
 function ouvrir(i) {
   courant = (i + visibles.length) % visibles.length;
+  clearTimeout(minuterieFermeture);
+  $("lightbox").classList.remove("fermeture");
   $("lb-img").src = visibles[courant].src;
   $("lb-cap").textContent = visibles[courant].titre;
+  rejouer($("lb-img"), "suivante");
   $("lightbox").hidden = false;
   document.body.classList.add("lb-ouverte");
 }
 const fermer = () => {
-  $("lightbox").hidden = true;
+  if ($("lightbox").classList.contains("fermeture")) return;
+  $("lightbox").classList.add("fermeture");
   document.body.classList.remove("lb-ouverte");
+  minuterieFermeture = setTimeout(() => {
+    $("lightbox").hidden = true;
+    $("lightbox").classList.remove("fermeture");
+  }, mouvementReduit ? 0 : 250);
 };
 document.querySelector(".lb-close").onclick = fermer;
 document.querySelector(".lb-prev").onclick = (e) => { e.stopPropagation(); ouvrir(courant - 1); };
 document.querySelector(".lb-next").onclick = (e) => { e.stopPropagation(); ouvrir(courant + 1); };
 $("lightbox").onclick = (e) => { if (e.target.id === "lightbox") fermer(); };
 document.addEventListener("keydown", (e) => {
-  if ($("lightbox").hidden) return;
+  if ($("lightbox").hidden || $("lightbox").classList.contains("fermeture")) return;
   if (e.key === "Escape") fermer();
   if (e.key === "ArrowLeft") ouvrir(courant - 1);
   if (e.key === "ArrowRight") ouvrir(courant + 1);
@@ -179,8 +215,15 @@ function afficherCalendrier() {
     grid.appendChild(cell);
   }
 }
-$("prev").onclick = () => { vue.setMonth(vue.getMonth() - 1); afficherCalendrier(); };
-$("next").onclick = () => { vue.setMonth(vue.getMonth() + 1); afficherCalendrier(); };
+function changerMois(sens) {
+  vue.setMonth(vue.getMonth() + sens);
+  afficherCalendrier();
+  $("cal-grid").classList.remove("vers-suivant", "vers-precedent");
+  rejouer($("cal-grid"), sens > 0 ? "vers-suivant" : "vers-precedent");
+  rejouer($("mois"));
+}
+$("prev").onclick = () => changerMois(-1);
+$("next").onclick = () => changerMois(1);
 afficherCalendrier();
 
 // --- Coordonnées ---
@@ -285,6 +328,7 @@ async function verifierDate(valeur) {
   }
   info.classList.add(etat);
   info.textContent = texte;
+  rejouer(info);
   return refus ? texte : null;
 }
 form.elements.date.onchange = () => verifierDate(form.elements.date.value);
@@ -305,6 +349,7 @@ form.onsubmit = async (e) => {
     if (refus || (!estJournee() && selectHeure.value !== heureChoisie)) {
       statut.classList.add("erreur");
       statut.textContent = refus || "Cet horaire n'est plus disponible, merci d'en choisir un autre.";
+      rejouer(statut);
       return;
     }
     // Le script Google attend une heure, même pour une séance sur la journée entière
@@ -349,5 +394,92 @@ form.onsubmit = async (e) => {
     statut.innerHTML = `L'envoi a échoué. Écrivez-moi directement à <a href="mailto:${c.email}">${c.email}</a>.`;
   } finally {
     bouton.disabled = false;
+    rejouer(statut);
   }
 };
+
+// --- Animations : blocs qui apparaissent au défilement ---
+document.querySelectorAll(".apropos p, .section h2, .filtres, .calendrier, #form").forEach((el) => reveler(el));
+document.querySelectorAll(".coord li").forEach((el, i) => reveler(el, i * 0.08));
+
+// --- Menu : fond qui apparaît dès qu'on quitte le haut de page ---
+const nav = document.querySelector(".nav");
+const majMenu = () => nav.classList.toggle("defile", scrollY > 10);
+addEventListener("scroll", majMenu, { passive: true });
+majMenu();
+
+// --- Le nom de l'accueil glisse vers le coin en haut à gauche au défilement ---
+if (!mouvementReduit) {
+  const titreHero = $("nom");
+  const logo = $("logo");
+  const volant = document.createElement("div");
+  volant.className = "titre-volant";
+  volant.setAttribute("aria-hidden", "true");
+  volant.appendChild(document.createElement("span")).textContent = CONFIG.nom;
+  document.body.appendChild(volant);
+  racine.classList.add("titre-anime");
+  const texteVolant = volant.firstChild;
+  const contenuHero = document.querySelector(".hero-content");
+  const ESPACE_DEBUT = 0.08, ESPACE_FIN = 0.35; // espacement des lettres du titre puis du logo (em)
+
+  let m = null;
+  function mesurer() {
+    const plage = document.createRange();
+    plage.selectNodeContents(titreHero);
+    const t = plage.getBoundingClientRect();
+    const l = logo.getBoundingClientRect();
+    texteVolant.style.letterSpacing = `${ESPACE_DEBUT}em`;
+    const largeurDebut = texteVolant.offsetWidth;
+    texteVolant.style.letterSpacing = `${ESPACE_FIN}em`;
+    const largeurFin = texteVolant.offsetWidth;
+    const echelle = parseFloat(getComputedStyle(logo).fontSize) / parseFloat(getComputedStyle(titreHero).fontSize);
+    m = {
+      centreX: t.left + t.width / 2,
+      haut: t.top + scrollY + (t.height - volant.offsetHeight) / 2, // position dans la page
+      hauteur: volant.offsetHeight,
+      largeurDebut, largeurFin, echelle,
+      logoX: l.left,
+      logoCentreY: l.top + l.height / 2,
+    };
+    m.distance = Math.max(m.haut - l.top, innerHeight * 0.6); // défilement nécessaire pour finir le trajet
+    // Sur mobile le logo est au-dessus des liens du menu : le titre doit passer à travers
+    const liens = document.querySelector(".nav nav").getBoundingClientRect();
+    m.liens = l.bottom <= liens.top ? { haut: liens.top, bas: liens.bottom } : null;
+    placer();
+  }
+
+  const adoucir = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  const ralentir = (t) => 1 - (1 - t) ** 3;
+  let enAttente = false;
+  function placer() {
+    enAttente = false;
+    const p = Math.min(Math.max(scrollY / m.distance, 0), 1);
+    // Le titre rétrécit vite (pour ne pas recouvrir le menu) puis se déplace en douceur
+    const eTaille = ralentir(p);
+    const ePosition = adoucir(p);
+    const echelle = 1 + (m.echelle - 1) * eTaille;
+    const largeur = m.largeurDebut + (m.largeurFin - m.largeurDebut) * eTaille;
+    // Le centre du titre part du centre de l'accueil et arrive sur le centre du logo
+    const centreX = m.centreX + (m.logoX + (m.largeurFin * m.echelle) / 2 - m.centreX) * ePosition;
+    const hautActuel = m.haut - scrollY;
+    const y = hautActuel + (m.logoCentreY - (m.hauteur * echelle) / 2 - hautActuel) * ePosition;
+    volant.style.transform = `translate3d(${centreX - (largeur * echelle) / 2}px, ${y}px, 0) scale(${echelle})`;
+    texteVolant.style.letterSpacing = `${ESPACE_DEBUT + (ESPACE_FIN - ESPACE_DEBUT) * eTaille}em`;
+    // Fondu enchaîné avec le vrai logo (cliquable) sur la fin du trajet
+    const borner = (v) => Math.min(Math.max(v, 0), 1);
+    let relais = borner((p - 0.92) / 0.08);
+    // ... dans ce cas le relais se fait juste avant qu'il n'atteigne les liens
+    if (m.liens) relais = Math.max(relais, borner((m.liens.bas + 14 - y) / 14));
+    volant.style.opacity = 1 - relais;
+    logo.style.opacity = relais;
+    // Le reste du texte d'accueil s'efface pour laisser passer le titre
+    contenuHero.style.opacity = 1 - borner(p / 0.25);
+  }
+
+  addEventListener("scroll", () => {
+    if (!enAttente) { enAttente = true; requestAnimationFrame(placer); }
+  }, { passive: true });
+  addEventListener("resize", mesurer);
+  mesurer();
+  document.fonts?.ready.then(mesurer);
+}
